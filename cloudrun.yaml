@@ -1,0 +1,52 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: gameteam-api
+  annotations:
+    run.googleapis.com/ingress: all
+    run.googleapis.com/execution-environment: gen2
+spec:
+  template:
+    metadata:
+      annotations:
+        run.googleapis.com/memory: 512Mi
+        run.googleapis.com/cpu: "1"
+        run.googleapis.com/max-scale: "10"
+        run.googleapis.com/min-scale: "0"
+        run.googleapis.com/timeout: "300"
+        run.googleapis.com/cpu-throttling: "true"
+    spec:
+      containerConcurrency: 40
+      containers:
+      - image: gcr.io/YOUR-PROJECT-ID/gameteam-api:latest
+        ports:
+        - containerPort: 8080
+        env:
+        - name: PORT
+          value: "8080"
+        - name: GCP_PROJECT_ID
+          value: "YOUR-PROJECT-ID"
+        # --- Azure SQL credentials --- #
+        # Provide via Google Secret Manager (same approach as gemdb) as the env vars
+        # AZURE_SQL_SERVER_NAME / AZURE_SQL_DATABASE_NAME / AZURE_SQL_USER_NAME /
+        # AZURE_SQL_USER_PASSWORD. API keys come from the secret "gameteam-api-keys".
+        # Do not commit the values here.
+        resources:
+          limits:
+            memory: 512Mi
+            cpu: "1"
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 10
+          timeoutSeconds: 5
+          periodSeconds: 10
+          failureThreshold: 5
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          timeoutSeconds: 5
+          periodSeconds: 30
