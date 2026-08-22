@@ -44,6 +44,10 @@ pytest -q
 
 ## Deploy
 
+First-time Google Cloud setup - creating the service, secrets and domain - is in
+[SETUP.md](SETUP.md).
+
+Afterwards, pushing to `main` deploys through the Cloud Build trigger.
 `./deploy.sh` builds and pushes `gcr.io/$PROJECT_ID/gameteam-api` and deploys the
-`gameteam-api` Cloud Run service. `cloudrun.yaml` holds the declarative service
-definition. Continuous deployment is wired through a Cloud Build trigger on `main`.
+`gameteam-api` Cloud Run service manually (region defaults to `us-east1`).
+`cloudrun.yaml` holds the declarative service definition.
