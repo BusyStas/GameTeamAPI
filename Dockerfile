@@ -42,4 +42,4 @@ USER gameteam
 EXPOSE 8080
 
 # Run the application
-CMD ["sh", "-c", "exec gunicorn --bind 0.0.0.0:${PORT:-8080} --workers 4 --worker-class uvicorn.workers.UvicornWorker --timeout 300 main:app"]
+CMD ["sh", "-c", "exec gunicorn --bind 0.0.0.0:${PORT:-8080} --workers 2 --worker-class uvicorn.workers.UvicornWorker --timeout 300 main:app"]
