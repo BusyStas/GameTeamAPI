@@ -3,13 +3,13 @@
 # GameTeamAPI Deployment Script for Google Cloud Run
 # Make sure to set these variables before running:
 # - PROJECT_ID: Your Google Cloud Project ID
-# - REGION: Your preferred region (e.g., us-central1)
+# - REGION: Cloud Run region (us-east1, Tier 1 pricing)
 
 set -e
 
 # Configuration
 PROJECT_ID=${PROJECT_ID:-"your-project-id"}
-REGION=${REGION:-"us-central1"}
+REGION=${REGION:-"us-east1"}
 SERVICE_NAME="gameteam-api"
 IMAGE_NAME="gameteam-api"
 
@@ -38,7 +38,11 @@ gcloud run deploy $SERVICE_NAME \
     --min-instances=0 \
     --concurrency=40 \
     --port=8080 \
-    --set-env-vars=GCP_PROJECT_ID=$PROJECT_ID
+    --cpu-boost \
+    --update-env-vars=GCP_PROJECT_ID=$PROJECT_ID
+
+# NOTE: --update-env-vars (not --set-env-vars) so that the Azure SQL credentials
+# configured on the service are preserved across deployments.
 
 echo "Deployment completed!"
 
