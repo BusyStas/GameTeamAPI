@@ -45,7 +45,7 @@ pytest -q
 ## Deploy
 
 First-time Google Cloud setup - creating the service, secrets and domain - is in
-[SETUP.md](SETUP.md).
+[INSTALL.MD](INSTALL.MD).
 
 Afterwards, pushing to `main` deploys through the Cloud Build trigger.
 `./deploy.sh` builds and pushes `gcr.io/$PROJECT_ID/gameteam-api` and deploys the

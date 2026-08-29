@@ -1,7 +1,31 @@
-# GameTeamAPI - Cloud Run Setup
+# GameTeamAPI - Install / Deploy to Cloud Run
 
 One-time setup to get `gameteam-api` running on Google Cloud Run at
 `https://api.gameteam.net`.
+
+Work through the sections in order. Steps 1-2 get a running service, steps 3-4
+connect it to the database, step 5 attaches the domain and step 6 verifies.
+
+> **Prerequisite:** the `GameTeam` schema does not yet exist in
+> [db-PersonalAssistants](https://github.com/BusyStas/db-PersonalAssistants).
+> The service will deploy and `/health` will pass, but `/api/v1/db-check` will
+> report `object_count: 0` until the schema and its stored procedures are added
+> and the database project is deployed.
+
+## Deploy order across the system
+
+These services share one Google Cloud project and one Azure SQL database, so
+the shared pieces only need doing once:
+
+| Order | Repo                                                                                 | Service                  | Notes                                    |
+| ----- | ------------------------------------------------------------------------------------ | ------------------------ | ---------------------------------------- |
+| 1     | [db-PersonalAssistants](https://github.com/BusyStas/db-PersonalAssistants)           | Azure SQL                | `GameTeam` schema must exist              |
+| 2     | [api-PersonalAssistants](https://github.com/BusyStas/api-PersonalAssistants)         | `personalassistants-api` | Independent, can be skipped               |
+| 3     | **GameTeamAPI** (this repo)                                                          | `gameteam-api`           | Serves `GameTeam`                         |
+| 4     | [GameTeamWeb](https://github.com/BusyStas/GameTeamWeb)                               | `gameteam-web`           | Needs `gameteam-api` first                |
+
+If you have already installed api-PersonalAssistants, four of the five secrets
+in step 3 already exist and are shared.
 
 Target configuration:
 
@@ -139,8 +163,17 @@ The database is the one built by
 that `db-PersonalAssistants` is the *repository* name, while the database itself
 is called `PersonalAssistants`.
 
-A server login alone is not enough: the login also needs a user inside the
-`PersonalAssistants` database with execute rights on the `GameTeam` schema.
+A server login alone is not enough: the login also needs a **user inside the
+`PersonalAssistants` database**. The database deploy pipeline uses `db_owner`,
+but this API only executes stored procedures, so prefer a least-privilege login:
+
+```sql
+CREATE USER [gtapi_login] FOR LOGIN [gtapi_login];
+GRANT EXECUTE ON SCHEMA::[GameTeam] TO [gtapi_login];
+```
+
+If the login was created in a way that requires it, the username may need the
+`<login>@stasik` form.
 
 ### Auto-pause
 
