@@ -78,8 +78,8 @@ Create these under **Secret Manager > Create Secret**:
 
 | Secret name                | Value                                        |
 | -------------------------- | -------------------------------------------- |
-| `azure-sql-server-name`    | Azure SQL server hostname                     |
-| `azure-sql-database-name`  | `db-PersonalAssistants`                       |
+| `azure-sql-server-name`    | `stasik.database.windows.net`                 |
+| `azure-sql-database-name`  | `PersonalAssistants`                          |
 | `azure-sql-user-name`      | SQL login                                     |
 | `azure-sql-user-password`  | SQL password                                  |
 | `gameteam-api-keys`        | `gameteamweb:<random-key>` (see format below) |
@@ -129,10 +129,29 @@ Azure side:
 - Attach a VPC connector with Cloud NAT to get a static egress IP, then
   allowlist that IP (tighter, costs more)
 
-Confirm the Azure region for `db-PersonalAssistants`. The API makes a SQL round
-trip per request, so cross-region latency dominates anything saved on compute.
-`us-east1` assumes the database is in or near **East US**; if it is elsewhere,
-reconsider the Cloud Run region.
+Confirm the Azure region for the `PersonalAssistants` database. The API makes a
+SQL round trip per request, so cross-region latency dominates anything saved on
+compute. `us-east1` assumes the database is in or near **East US**; if it is
+elsewhere, reconsider the Cloud Run region.
+
+The database is the one built by
+[db-PersonalAssistants](https://github.com/BusyStas/db-PersonalAssistants) - note
+that `db-PersonalAssistants` is the *repository* name, while the database itself
+is called `PersonalAssistants`.
+
+A server login alone is not enough: the login also needs a user inside the
+`PersonalAssistants` database with execute rights on the `GameTeam` schema.
+
+### Auto-pause
+
+`PersonalAssistants` runs on free-tier serverless and auto-pauses when idle. The
+first connection against a paused database is rejected or times out while it
+resumes; `app/azure_db.py` retries with backoff to absorb this. Combined with
+Cloud Run at min-instances 0, a cold container against a paused database can
+take upwards of 30 seconds for the first request.
+
+`/health` deliberately does not touch the database, so the Cloud Run probes
+cannot fail merely because the database is paused.
 
 ## 5. Custom domain
 

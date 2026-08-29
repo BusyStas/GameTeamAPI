@@ -1,10 +1,16 @@
 """Azure SQL Database connection module.
 
 This module provides connection helpers and stored procedure execution
-for the db-PersonalAssistants database using the GameTeam schema.
+for the PersonalAssistants database using the GameTeam schema.
+
+PersonalAssistants runs on Azure SQL free-tier serverless, which auto-pauses
+after an idle period. The first connection against a paused database times out
+or is rejected while the database resumes, so connections are retried with
+backoff rather than surfaced as an error.
 """
 
 import os
+import time
 import logging
 import pyodbc
 from typing import List, Dict, Any, Optional
@@ -13,6 +19,14 @@ logger = logging.getLogger(__name__)
 
 # Schema name constant for all GameTeam stored procedures
 GAMETEAM_SCHEMA = "GameTeam"
+
+# Retry policy for the serverless auto-pause resume window
+CONNECT_MAX_ATTEMPTS = int(os.environ.get('AZURE_SQL_CONNECT_ATTEMPTS', '4'))
+CONNECT_BACKOFF_SECONDS = float(os.environ.get('AZURE_SQL_CONNECT_BACKOFF', '3'))
+
+# SQLSTATE prefixes that indicate a transient connection problem rather than a
+# permanent failure such as bad credentials.
+_TRANSIENT_SQLSTATES = ('08001', '08S01', 'HYT00', 'HYT01', '40613', '40197', '40501')
 
 
 def get_azure_connection_string() -> str:
@@ -37,11 +51,38 @@ def get_azure_connection_string() -> str:
     )
 
 
+def _is_transient(error: pyodbc.Error) -> bool:
+    """Return True when the ODBC error looks like a paused or resuming database."""
+    sqlstate = error.args[0] if error.args else ''
+    if any(str(sqlstate).startswith(state) for state in _TRANSIENT_SQLSTATES):
+        return True
+    message = str(error)
+    return 'is not currently available' in message or 'Login timeout expired' in message
+
+
 def get_azure_connection(autocommit: bool = False):
-    """Get a new Azure SQL connection."""
-    conn = pyodbc.connect(get_azure_connection_string())
-    conn.autocommit = autocommit
-    return conn
+    """Get a new Azure SQL connection, retrying while the database resumes."""
+    last_error = None
+
+    for attempt in range(1, CONNECT_MAX_ATTEMPTS + 1):
+        try:
+            conn = pyodbc.connect(get_azure_connection_string())
+            conn.autocommit = autocommit
+            if attempt > 1:
+                logger.info(f"Azure SQL connection succeeded on attempt {attempt}")
+            return conn
+        except pyodbc.Error as e:
+            last_error = e
+            if attempt == CONNECT_MAX_ATTEMPTS or not _is_transient(e):
+                raise
+            delay = CONNECT_BACKOFF_SECONDS * attempt
+            logger.warning(
+                f"Azure SQL connection attempt {attempt} failed ({e.args[0] if e.args else '?'}); "
+                f"database may be resuming from auto-pause, retrying in {delay:.0f}s"
+            )
+            time.sleep(delay)
+
+    raise last_error
 
 
 def _wvarchar_input_sizes(values):

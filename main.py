@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="GameTeamAPI - GameTeam Database Microservice",
-    description="A RESTful API over the [GameTeam] schema of db-PersonalAssistants",
+    description="A RESTful API over the [GameTeam] schema of the PersonalAssistants database",
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
